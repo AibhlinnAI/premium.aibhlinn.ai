@@ -20,6 +20,7 @@ on:
 
 permissions:
   contents: read
+  actions: read           # to see this run's upload before publishing it
   pages: write
   id-token: write
 
@@ -83,6 +84,24 @@ jobs:
       - uses: actions/upload-pages-artifact@v3
         with:
           path: site
+
+      # GitHub can take a while to list an upload it has just accepted. On
+      # 25 Nov 2026 deploy-pages looked half a second after the upload,
+      # found nothing, and failed four times in a row in two repos. Wait
+      # until the upload is listed (up to 3 minutes), then publish.
+      - name: Wait until GitHub lists the upload
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          for i in $(seq 1 36); do
+            n=$(gh api "repos/${{ github.repository }}/actions/runs/${{ github.run_id }}/artifacts" \
+                  --jq '[.artifacts[] | select(.name == "github-pages")] | length' || echo 0)
+            if [ "$n" = "1" ]; then echo "Upload listed after $(( (i - 1) * 5 )) s."; exit 0; fi
+            if [ "$n" -gt 1 ] 2>/dev/null; then echo "::error::$n uploads named github-pages in this run. Start a fresh run from the Actions tab instead of re-running this one."; exit 1; fi
+            sleep 5
+          done
+          echo "::error::GitHub had not listed the upload after 3 minutes. Start a fresh run from the Actions tab."
+          exit 1
 
       - id: deployment
         uses: actions/deploy-pages@v4
