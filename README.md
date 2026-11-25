@@ -17,7 +17,7 @@ same guard job as `AibhlinnAI/aibhlinn.ai` (secrets, trackers, ABN wrapping).
 
 | File | What it is |
 | --- | --- |
-| `index.html` | The page. `noindex` until Mal says the site is live |
+| `index.html` | The page. Live and indexed since 25 Nov 2026, after two test purchases Mal watched (one in-trial, one paid today, both cancelled and refunded) |
 | `premium.js` | Confirm email, read the account's entitlement, open checkout |
 | `identity/identity.js`, `identity/email-typos.js` | Copied **unmodified** from `pie-timers-app/identity/`. Copy again if those change; never edit here |
 | `site.css` | Copied from the `aibhlinn.ai` repo, plus the Premium rules at the end. Keep the two in step |
