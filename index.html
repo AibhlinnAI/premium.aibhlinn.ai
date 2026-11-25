@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="en-AU">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>AibhlínnAI Premium | AibhlínnAI</title>
+<meta name="description" content="Subscribe to AibhlínnAI Premium for Pie Timers: sync between devices, calendar connection and alerts when the app is closed. A$2.90 a month or A$19 a year.">
+<link rel="canonical" href="https://premium.aibhlinn.ai/">
+<!-- Not indexed until Mal says the site is live (README). -->
+<meta name="robots" content="noindex">
+<meta name="theme-color" content="#050818">
+<meta name="color-scheme" content="light dark">
+<link rel="icon" href="/favicon.ico" sizes="16x16 32x32 48x48">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<link rel="stylesheet" href="/site.css">
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+
+<header class="hero hero--slim">
+  <nav class="bar wrap" aria-label="Main">
+    <a class="brand" href="/" aria-label="AibhlínnAI Premium">
+      <img src="/aibhlinn-mark-80.png" width="40" height="40" alt="">
+    </a>
+    <ul class="nav-links">
+      <li><a href="https://pietimers.aibhlinn.ai/">Pie Timers</a></li>
+    </ul>
+  </nav>
+  <div class="hero-body wrap">
+    <h1 class="premium-title">AibhlínnAI Premium</h1>
+    <p class="lede">The subscription for AibhlínnAI apps. Today that is
+    Pie Timers, the web app that shows your day as a shrinking pie.</p>
+  </div>
+</header>
+
+<main id="main">
+  <section class="section" aria-labelledby="price-title">
+    <div class="wrap narrow">
+      <h2 id="includes-title">What Premium adds</h2>
+      <ul class="includes">
+        <li><strong>Sync between devices.</strong> Your weekly schedule,
+        updated across all your devices.</li>
+        <li><strong>Calendar connection.</strong> Connect your calendar for
+        an automatic countdown to your next appointment.</li>
+        <li><strong>Alerts when the app is closed.</strong> Pie Timers alerts
+        reach you even when the app is not open.</li>
+      </ul>
+      <p class="muted">Everything that works on one device stays free,
+      without a subscription.</p>
+
+      <h2 id="price-title">Choose your plan</h2>
+
+      <div class="plans">
+        <div class="plan-card">
+          <h3>Yearly</h3>
+          <p class="plan-price">A$19 <span>a year</span></p>
+          <p class="muted">Works out at A$1.58 a month. Save A$15.80 a year.</p>
+        </div>
+        <div class="plan-card">
+          <h3>Monthly</h3>
+          <p class="plan-price">A$2.90 <span>a month</span></p>
+          <p class="muted">Cancel any time.</p>
+        </div>
+      </div>
+
+      <!-- The launch offer. Shown until 2027-01-01T12:00:00Z, then hidden by
+           premium.js (OFFER_CLOSES). Without JavaScript the page cannot sell
+           anyway, so the noscript note below stands in. -->
+      <div class="offer" id="offer" hidden>
+        <p class="offer-head">Pay nothing until 2027</p>
+        <p>Subscribe while your free trial is running and your first payment
+        is taken from 1 January 2027. The offer runs to the end of 31 December
+        2026.</p>
+      </div>
+
+      <p class="muted">Every new account starts with a 14-day free trial.
+      Subscribe while the free trial is running and you get more free time
+      before your first payment: 30 days free from the day you started your
+      AibhlínnAI account on a yearly plan, or 21 days on a monthly plan. If you
+      subscribe after your trial has ended, you pay on the day you
+      subscribe.</p>
+
+      <p class="muted tax">Prices are in Australian dollars and include GST or
+      VAT. In some countries, such as Canada, sales tax is added at checkout.
+      Checkout shows the final price, in Australian dollars.</p>
+
+      <noscript><p class="notice">Subscribing needs JavaScript. Please turn
+      JavaScript on for this page, or write to
+      <a href="mailto:support@aibhlinn.ai">support@aibhlinn.ai</a>.</p></noscript>
+
+      <!-- ── Step 1: confirm your email ─────────────────────────── -->
+      <div class="step" id="stepEmail" hidden>
+        <h2 tabindex="-1">Confirm your email</h2>
+        <p>Use the email you use in Pie Timers. We send you a code, so we
+        know the subscription goes to the right account. No password.</p>
+        <p class="muted" id="newNote">New to AibhlínnAI? Confirming your email
+        also starts your 14-day free trial.</p>
+        <form id="emailForm" novalidate>
+          <label class="field">
+            <span>Email address</span>
+            <input type="email" id="email" autocomplete="email" inputmode="email" required>
+          </label>
+          <p class="typo" id="typo" hidden>Did you mean
+            <button type="button" class="link-btn" id="typoUse"></button>?</p>
+          <div class="challenge" id="challenge" hidden></div>
+          <div class="actions">
+            <button class="btn btn-primary" type="submit" id="emailSubmit">Send me a code</button>
+            <button class="btn btn-ghost" type="button" id="googleBtn" hidden>Continue with Google</button>
+          </div>
+        </form>
+      </div>
+
+      <!-- ── Step 2: the code ────────────────────────────────────── -->
+      <div class="step" id="stepCode" hidden>
+        <h2 tabindex="-1">Enter your code</h2>
+        <p>We sent a code to <strong id="codeEmail"></strong>. The email
+        can take a minute to arrive. Check your spam folder too.</p>
+        <form id="codeForm" novalidate>
+          <label class="field">
+            <span>Code</span>
+            <input type="text" id="code" autocomplete="one-time-code" inputmode="numeric"
+                   pattern="[0-9 ]*" maxlength="12" required>
+          </label>
+          <div class="actions">
+            <button class="btn btn-primary" type="submit" id="codeSubmit">Confirm</button>
+            <button class="btn btn-ghost" type="button" id="codeBack">Use a different email</button>
+          </div>
+        </form>
+      </div>
+
+      <!-- ── Step 3: subscribe ───────────────────────────────────── -->
+      <div class="step" id="stepBuy" hidden>
+        <h2 tabindex="-1">Subscribe</h2>
+        <p>Confirmed as <strong id="buyEmail"></strong>.
+          <button type="button" class="link-btn" id="notMe">Not you?</button></p>
+        <p id="buyNote" role="status" aria-live="polite"></p>
+        <div class="actions">
+          <button class="btn btn-primary" type="button" data-cadence="annual">Subscribe yearly, A$19</button>
+          <button class="btn btn-ghost" type="button" data-cadence="monthly">Subscribe monthly, A$2.90</button>
+        </div>
+      </div>
+
+      <!-- ── Done ────────────────────────────────────────────────── -->
+      <div class="step" id="stepDone" hidden>
+        <h2 tabindex="-1">Thank you</h2>
+        <p>AibhlínnAI Premium is now on your account. Open Pie Timers and sign
+        in with the same email to use Premium there.</p>
+        <p><a class="btn btn-primary" href="https://pietimers.aibhlinn.ai/">Open Pie Timers</a></p>
+      </div>
+
+      <p class="status" id="status" role="status" aria-live="polite"></p>
+
+      <p class="muted small">Paddle sells AibhlínnAI Premium on our behalf and
+      handles payment. Read the
+      <a href="https://pietimers.aibhlinn.ai/terms.html">Terms of Service</a>,
+      including <a href="https://pietimers.aibhlinn.ai/terms.html#refunds">refunds</a>,
+      and the <a href="https://pietimers.aibhlinn.ai/privacy.html">Privacy Policy</a>.</p>
+    </div>
+  </section>
+</main>
+
+<footer class="foot">
+  <div class="wrap">
+    <p class="promise">No ads. No tracking. No selling your data. Ever.</p>
+    <p>This page loads Cloudflare's bot check while you confirm your email,
+    and Paddle's checkout when you subscribe. Nothing else.</p>
+    <nav class="foot-links" aria-label="Footer">
+      <a href="https://pietimers.aibhlinn.ai/">Pie Timers</a>
+      <a href="https://pietimers.aibhlinn.ai/terms.html">Terms</a>
+      <a href="https://pietimers.aibhlinn.ai/privacy.html">Privacy</a>
+      <a href="mailto:support@aibhlinn.ai">Contact</a>
+    </nav>
+    <p class="fine">© AibhlínnAI · ABN&nbsp;70&nbsp;810&nbsp;791&nbsp;817 · South Australia</p>
+  </div>
+</footer>
+
+<script src="/identity/email-typos.js"></script>
+<script src="/identity/identity.js"></script>
+<script src="/premium.js"></script>
+</body>
+</html>

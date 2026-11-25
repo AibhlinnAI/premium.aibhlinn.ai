@@ -1,0 +1,396 @@
+/* ============================================================
+   AibhlínnAI shared identity module.
+
+   One account authenticates a person across every AibhlínnAI app.
+   This file knows nothing about Pie Timers, Pomodoro, or whatever
+   comes after — this layer only knows about signing in, holding a session,
+   and signing out. A second app copies this file unmodified.
+
+   Written against the Supabase HTTP API directly, matching every
+   other AibhlínnAI app's "no build step, no dependencies" rule —
+   the file the browser runs is the file a person can read.
+
+   Usage (each app calls init() once with its own Supabase project
+   values — the identity, not the project, is what's shared):
+
+     Aibhlinn.identity.init({
+       supabaseUrl: '...',
+       supabaseAnonKey: '...',
+       redirectUrl: '...'          // optional, defaults to current page
+     });
+
+     Aibhlinn.identity.onChange(function (session) { ... });
+     Aibhlinn.identity.signInWithEmail('me@example.com');
+     Aibhlinn.identity.verifyEmailOtp('me@example.com', '123456');
+     Aibhlinn.identity.isSignedIn();
+     Aibhlinn.identity.signOut();
+
+   What this module deliberately does NOT do:
+     - does not know what a "product" is (see entitlements.js)
+     - does not request Google Calendar scope or any other
+       product-specific OAuth scope — that is Pie Timers' concern,
+       requested by Pie Timers' own code, using this module only to
+       reach an already-signed-in session's token
+     - does not decide what a session unlocks — see entitlements.js
+
+   A note on cross-app sign-in: sessions are stored in this browser's
+   localStorage, which is scoped per origin. Two apps on different
+   subdomains (pietimers.aibhlinn.ai, pomodoro.aibhlinn.ai) do NOT
+   automatically share a signed-in session just by both importing this
+   file — localStorage cannot cross that boundary. What IS shared is
+   the account itself: the same email, the same auth.users row, the
+   same entitlements. Today, a person signs in once per subdomain.
+   True zero-click SSO across subdomains needs either a shared cookie
+   domain (.aibhlinn.ai) or a small auth-broker page apps redirect
+   through — a real decision, deliberately left open here rather than
+   built silently. See identity/README.md.
+   ============================================================ */
+(function (global) {
+  'use strict';
+
+  var Aibhlinn = global.Aibhlinn = global.Aibhlinn || {};
+
+  var SESSION_KEY = 'aibhlinn/session/v1';
+  var REFRESH_MARGIN_MS = 60 * 1000;
+
+  var cfg = null;
+  var session = null;
+  var listeners = [];
+  var lastEmittedKey = null;
+  var refreshTimer = null;
+  var refreshInFlight = null;
+
+  function authUrl(path) { return cfg.supabaseUrl + '/auth/v1' + path; }
+
+  function redirectTarget() {
+    if (cfg.redirectUrl) return cfg.redirectUrl;
+    return location.origin + location.pathname;
+  }
+
+  /* Identity of the current session, for change detection. Listeners
+     care about WHO is signed in, not about the session object being
+     rewritten -- and at least one of them (Pie Timers' sync.js) calls
+     loadUser() from inside its own handler, which writes the user back
+     onto the session and stores the session again. Emitting on every store
+     therefore re-enters that listener and loops: user fetch,
+     entitlement, calendar, profile, push, repeat, tens of times a
+     second.
+
+     This guard lived in supabase.js until CT.auth became a facade and
+     stopped keeping a session of its own, and has to live wherever the
+     session actually does, which is here. */
+  function sessionKey() {
+    if (!session || !session.access_token) return '';
+    return session.access_token + '|' + ((session.user && session.user.id) || '');
+  }
+
+  function emit() {
+    var key = sessionKey();
+    if (key === lastEmittedKey) return;
+    lastEmittedKey = key;
+    listeners.forEach(function (fn) {
+      try { fn(session); } catch (e) { /* one listener must not break the rest */ }
+    });
+  }
+
+  function describeError(payload, status) {
+    if (!payload) return 'Request failed (' + status + ').';
+    return payload.error_description || payload.msg || payload.message ||
+           payload.error || ('Request failed (' + status + ').');
+  }
+
+  function request(url, options) {
+    return fetch(url, options).then(function (res) {
+      if (res.status === 204) return null;
+      return res.text().then(function (text) {
+        var body = null;
+        if (text) {
+          try { body = JSON.parse(text); } catch (e) { body = { message: text }; }
+        }
+        if (!res.ok) {
+          var err = new Error(describeError(body, res.status));
+          err.status = res.status;
+          err.body = body;
+          throw err;
+        }
+        return body;
+      });
+    });
+  }
+
+  function loadSession() {
+    try {
+      var raw = localStorage.getItem(SESSION_KEY);
+      return raw ? JSON.parse(raw) : null;
+    } catch (e) { return null; }
+  }
+
+  function storeSession(next) {
+    session = next;
+    try {
+      if (next) localStorage.setItem(SESSION_KEY, JSON.stringify(next));
+      else localStorage.removeItem(SESSION_KEY);
+    } catch (e) { /* private browsing: session stays in memory only */ }
+    scheduleRefresh();
+    emit();
+  }
+
+  function adoptTokenResponse(data) {
+    if (!data || !data.access_token) throw new Error('Sign-in response was incomplete.');
+    storeSession({
+      access_token: data.access_token,
+      refresh_token: data.refresh_token,
+      expires_at: Date.now() + ((data.expires_in || 3600) * 1000),
+      user: data.user || (session && session.user) || null
+    });
+    return session;
+  }
+
+  function scheduleRefresh() {
+    clearTimeout(refreshTimer);
+    if (!session || !session.refresh_token) return;
+    var delay = session.expires_at - Date.now() - REFRESH_MARGIN_MS;
+    refreshTimer = setTimeout(refresh, Math.min(Math.max(delay, 0), 30 * 60 * 1000));
+  }
+
+  function refresh() {
+    if (!session || !session.refresh_token) return Promise.resolve(null);
+    if (refreshInFlight) return refreshInFlight;
+
+    refreshInFlight = request(authUrl('/token?grant_type=refresh_token'), {
+      method: 'POST',
+      headers: { apikey: cfg.supabaseAnonKey, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ refresh_token: session.refresh_token })
+    }).then(function (data) {
+      refreshInFlight = null;
+      return adoptTokenResponse(data);
+    }).catch(function (err) {
+      refreshInFlight = null;
+      if (err.status === 400 || err.status === 401) storeSession(null);
+      throw err;
+    });
+
+    return refreshInFlight;
+  }
+
+  function validToken() {
+    if (!session) return Promise.resolve(null);
+    if (session.expires_at - Date.now() > REFRESH_MARGIN_MS) {
+      return Promise.resolve(session.access_token);
+    }
+    return refresh().then(function (s) { return s ? s.access_token : null; });
+  }
+
+  /* Supabase returns tokens in the URL fragment after an OAuth round
+     trip (Google). The emailed-code path never comes back this way --
+     the client verifies in place and gets its tokens in a response body. Any
+     fragment found here is consumed once at init, then scrubbed from
+     the address bar so nothing is left sitting in browser history. */
+  function consumeRedirect() {
+    var hash = location.hash || '';
+    if (hash.indexOf('access_token=') === -1 && hash.indexOf('error=') === -1) return null;
+
+    var params = new URLSearchParams(hash.replace(/^#/, ''));
+    var clean = location.pathname + location.search;
+
+    if (params.get('error')) {
+      var message = (params.get('error_description') || params.get('error') || '').replace(/\+/g, ' ');
+      history.replaceState(null, '', clean);
+      return { error: message };
+    }
+
+    try {
+      adoptTokenResponse({
+        access_token: params.get('access_token'),
+        refresh_token: params.get('refresh_token'),
+        expires_in: parseInt(params.get('expires_in'), 10) || 3600
+      });
+    } catch (e) {
+      history.replaceState(null, '', clean);
+      return { error: e.message };
+    }
+
+    /* A provider refresh token (e.g. Google, when a product asked for
+       extra scope) rides along here, handed back to the caller
+       and never stored by this module — a product-specific concern. */
+    var providerRefreshToken = params.get('provider_refresh_token');
+    history.replaceState(null, '', clean);
+    return { signedIn: true, providerRefreshToken: providerRefreshToken || null };
+  }
+
+  /* The plain path: straight to Supabase, no bot check and no throttle
+     in front. A product that has either supplies a `signIn`
+     delegate to init(); this is what runs when none is supplied, or
+     when the delegate stands aside. */
+  function sendMagicLink(email) {
+    return request(authUrl('/otp'), {
+      method: 'POST',
+      headers: { apikey: cfg.supabaseAnonKey, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        email: email,
+        create_user: true,
+        options: { email_redirect_to: redirectTarget() }
+      })
+    });
+  }
+
+  var identity = {
+    /* Call once per page load, before anything else in this module. */
+    init: function (config) {
+      cfg = config;
+      session = loadSession();
+      scheduleRefresh();
+      return consumeRedirect();
+    },
+    /* Emails a one-time sign-in code — no password is ever collected
+       or stored, which matters for an audience this app is built for:
+       one thing to remember (an email address) instead of two. The
+       code is finished with verifyEmailOtp() below; the email carries
+       no link, so nothing here depends on which device opens the message.
+
+       A product may supply `signIn` to init() to route this through
+       its own endpoint instead of straight to Supabase. Pie Timers
+       does, because /auth/v1/otp has nowhere to put a bot check or a
+       throttle: called directly, a sign-in form is an open relay for
+       emailing strangers, and burns the sending quota and the
+       domain's reputation along the way. identity stays ignorant of which
+       vendor does the checking, and only knows there is a delegate and
+       an element the delegate may draw into. */
+    prepareSignIn: function (challengeHost) {
+      if (!cfg || typeof cfg.prepareSignIn !== 'function') return Promise.resolve(false);
+      try {
+        return Promise.resolve(cfg.prepareSignIn(challengeHost));
+      } catch (e) {
+        return Promise.resolve(false);   // a bot check that fails to draw must not block sign-in
+      }
+    },
+
+    signInWithEmail: function (email, ctx) {
+      /* A delegate returning null means "I could not do this, you go
+         ahead". Pie Timers uses that when its bot check will not
+         render, so a widget that fails cannot become a sign-in nobody
+         can complete. Any other return value is the answer. */
+      if (cfg && typeof cfg.signIn === 'function') {
+        return Promise.resolve(cfg.signIn(email, ctx || {})).then(function (result) {
+          return result === null ? sendMagicLink(email) : result;
+        });
+      }
+      return sendMagicLink(email);
+    },
+
+    /* Finish sign-in with the numeric code from the email. The email
+       carries only this code, no link: a link signs in whichever
+       browser opens the link and no other, and corporate mail scanners that
+       fetch every URL can spend that link before the person even reads the
+       message. A code is read off the device that holds the inbox and
+       typed into the device running the app — a personal address that
+       is only reachable on a phone while the app is open on a
+       locked-down work machine.
+
+       Verification returns the same token payload an OAuth redirect
+       carries, in the response body rather than a URL fragment, so the
+       session is adopted identically.
+
+       type 'email' is GoTrue's unified passwordless type, which settles
+       both a brand-new account and a returning one, matching the
+       create_user:true request that sent the code.
+
+       A product may supply `verifyCode` to init(), to settle a code
+       Supabase has just refused. It resolves to a token payload to
+       sign in with, or null to let Supabase's refusal stand, and it
+       rejects only when it has something better to tell the person.
+       Pie Timers uses it for the one account store reviewers sign in
+       with, because a reviewer cannot read an inbox. It runs only after
+       a refusal (a 4xx), never after a network failure, so a real code
+       never goes anywhere but Supabase while Supabase can be reached. */
+    verifyEmailOtp: function (email, code) {
+      var address = (email || '').trim();
+      var token = (code || '').replace(/\s+/g, '');
+      return request(authUrl('/verify'), {
+        method: 'POST',
+        headers: { apikey: cfg.supabaseAnonKey, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ type: 'email', email: address, token: token })
+      }).then(function (data) {
+        return adoptTokenResponse(data);
+      }, function (refused) {
+        var fallback = cfg && cfg.verifyCode;
+        if (typeof fallback !== 'function' || !(refused.status >= 400 && refused.status < 500)) {
+          throw refused;
+        }
+        return Promise.resolve().then(function () {
+          return fallback(address, token);
+        }).then(function (data) {
+          if (!data) throw refused;
+          return adoptTokenResponse(data);
+        });
+      });
+    },
+
+    /* Optional, secondary. Hands off to Supabase, which returns to
+       redirectTarget(). Requests no scope beyond identifying the
+       person — a product asking for more (e.g. calendar access)
+       does that itself, separately, after the person is signed in. */
+    signInWithGoogle: function () {
+      var url = authUrl('/authorize') +
+        '?provider=google' +
+        '&redirect_to=' + encodeURIComponent(redirectTarget());
+      location.assign(url);
+    },
+
+    signOut: function () {
+      var token = session && session.access_token;
+      storeSession(null);
+      if (!token) return Promise.resolve();
+      return request(authUrl('/logout'), {
+        method: 'POST',
+        headers: { apikey: cfg.supabaseAnonKey, Authorization: 'Bearer ' + token }
+      }).catch(function () { /* local sign-out already happened */ });
+    },
+
+    loadUser: function () {
+      return validToken().then(function (token) {
+        if (!token) return null;
+        return request(authUrl('/user'), {
+          headers: { apikey: cfg.supabaseAnonKey, Authorization: 'Bearer ' + token }
+        });
+      }).then(function (user) {
+        if (user && session) { session.user = user; storeSession(session); }
+        return user;
+      });
+    },
+
+    /* Deletes the AibhlínnAI account itself — every product's data
+       alongside, via each product's own cascading delete. Products with
+       data to clean up beyond auth.users register that server-side;
+       this module only proves who is asking. */
+    deleteAccount: function (functionUrl) {
+      return validToken().then(function (token) {
+        if (!token) throw new Error('Not signed in.');
+        return request(functionUrl, {
+          method: 'POST',
+          headers: {
+            apikey: cfg.supabaseAnonKey,
+            Authorization: 'Bearer ' + token,
+            'Content-Type': 'application/json'
+          },
+          body: '{}'
+        });
+      }).then(function (result) {
+        storeSession(null);
+        return result;
+      });
+    },
+
+    getSession: function () { return session; },
+    getUser: function () { return session && session.user; },
+    isSignedIn: function () { return Boolean(session && session.access_token); },
+    validToken: validToken,
+
+    onChange: function (fn) {
+      listeners.push(fn);
+      return function () { listeners = listeners.filter(function (f) { return f !== fn; }); };
+    }
+  };
+
+  Aibhlinn.identity = identity;
+})(window);
