@@ -20,7 +20,6 @@ on:
 
 permissions:
   contents: read
-  actions: read           # to see this run's upload before publishing it
   pages: write
   id-token: write
 
@@ -70,7 +69,7 @@ jobs:
     runs-on: ubuntu-latest
     environment:
       name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
+      url: ${{ steps.deploy1.outputs.page_url || steps.deploy2.outputs.page_url || steps.deploy3.outputs.page_url }}
     steps:
       - uses: actions/checkout@v4
 
@@ -85,23 +84,27 @@ jobs:
         with:
           path: site
 
-      # GitHub can take a while to list an upload it has just accepted. On
-      # 25 Nov 2026 deploy-pages looked half a second after the upload,
-      # found nothing, and failed four times in a row in two repos. Wait
-      # until the upload is listed (up to 3 minutes), then publish.
-      - name: Wait until GitHub lists the upload
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          for i in $(seq 1 36); do
-            n=$(gh api "repos/${{ github.repository }}/actions/runs/${{ github.run_id }}/artifacts" \
-                  --jq '[.artifacts[] | select(.name == "github-pages")] | length' || echo 0)
-            if [ "$n" = "1" ]; then echo "Upload listed after $(( (i - 1) * 5 )) s."; exit 0; fi
-            if [ "$n" -gt 1 ] 2>/dev/null; then echo "::error::$n uploads named github-pages in this run. Start a fresh run from the Actions tab instead of re-running this one."; exit 1; fi
-            sleep 5
-          done
-          echo "::error::GitHub had not listed the upload after 3 minutes. Start a fresh run from the Actions tab."
-          exit 1
+      # GitHub's publish step sometimes cannot find an upload this run has
+      # just made ("No artifacts named github-pages were found"), even when
+      # GitHub's own API already lists it. From 25 Nov 2026 it failed this
+      # way on and off in every AibhlínnAI repo. Re-running the run adds a
+      # second upload and fails differently, so the retries live here, in
+      # one run with one upload: three tries, 30 s and then 90 s apart.
+      - id: deploy1
+        uses: actions/deploy-pages@v4
+        continue-on-error: true
 
-      - id: deployment
+      - if: steps.deploy1.outcome == 'failure'
+        run: sleep 30
+
+      - id: deploy2
+        if: steps.deploy1.outcome == 'failure'
+        uses: actions/deploy-pages@v4
+        continue-on-error: true
+
+      - if: steps.deploy1.outcome == 'failure' && steps.deploy2.outcome == 'failure'
+        run: sleep 90
+
+      - id: deploy3
+        if: steps.deploy1.outcome == 'failure' && steps.deploy2.outcome == 'failure'
         uses: actions/deploy-pages@v4
