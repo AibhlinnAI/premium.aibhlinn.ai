@@ -43,10 +43,10 @@
     monthlyPriceId: 'pri_01m1efkevnwpn0rj7g2kzjne0j'
   };
 
-  /* Off until https://premium.aibhlinn.ai/ is in Supabase's redirect allow
-     list. With it off, the Google button stays hidden: a button that
-     fails is worse than one that is not there. */
-  var GOOGLE_ENABLED = false;
+  /* On since 26 Nov 2026, when https://premium.aibhlinn.ai/** went into
+     Supabase's redirect allow list. Turn it off and the Google button is
+     hidden: a button that fails is worse than one that is not there. */
+  var GOOGLE_ENABLED = true;
 
   /* The end of 31 December 2026 anywhere on Earth. The same instant as
      OFFER_CLOSES in pie-timers-app (app/identity-bridge.js, pricing.html):
@@ -372,16 +372,37 @@
 
   var pendingEmail = '';
 
+  /* "This tab pressed Continue with Google", kept in sessionStorage: it
+     stays with the tab across the trip to Google and back, and no other
+     site or link can write it. Read once, then removed, and ignored after
+     15 minutes. If the browser refuses storage, a Google return is
+     dropped and the email code still works. */
+  var GOOGLE_ASK_KEY = 'aibhlinn/premium/google-asked';
+  var GOOGLE_ASK_MS = 15 * 60 * 1000;
+  function noteGoogleAsk() {
+    try { sessionStorage.setItem(GOOGLE_ASK_KEY, String(Date.now())); } catch (e) { /* see above */ }
+  }
+  function takeGoogleAsk() {
+    try {
+      var at = Number(sessionStorage.getItem(GOOGLE_ASK_KEY));
+      sessionStorage.removeItem(GOOGLE_ASK_KEY);
+      var age = Date.now() - at;
+      return at > 0 && age >= 0 && age < GOOGLE_ASK_MS;
+    } catch (e) { return false; }
+  }
+
   function start() {
     if (!identity) { say(MESSAGES.failed, true); return; }
     $('offer').hidden = !offerOpen();
     $('googleBtn').hidden = !GOOGLE_ENABLED;
 
-    /* With Google off, this page never sends anyone away to sign in, so a
-       token arriving in the address is not one it asked for. A link
+    /* A token arriving in the address is only one this page asked for if
+       the Google button was pressed in this tab a short while ago. A link
        carrying someone else's token must not sign the buyer in as that
-       account, so drop it before identity.init() can adopt it. */
-    if (!GOOGLE_ENABLED && /(^#|&)(access_token|error)=/.test(location.hash)) {
+       account, so anything else is dropped before identity.init() can
+       adopt it. With Google off, nothing is ever asked for. */
+    var askedGoogle = GOOGLE_ENABLED && takeGoogleAsk();
+    if (!askedGoogle && /(^#|&)(access_token|error)=/.test(location.hash)) {
       history.replaceState(null, '', location.pathname + location.search);
     }
 
@@ -443,7 +464,10 @@
       say('');
     });
 
-    $('googleBtn').addEventListener('click', function () { identity.signInWithGoogle(); });
+    $('googleBtn').addEventListener('click', function () {
+      noteGoogleAsk();
+      identity.signInWithGoogle();
+    });
 
     $('codeForm').addEventListener('submit', function (e) {
       e.preventDefault();
