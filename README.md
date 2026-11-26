@@ -73,6 +73,10 @@ here too.
 5. Pie Timers' `signin` and `create-checkout` functions accepting the
    `https://premium.aibhlinn.ai` origin as well as
    `https://pietimers.aibhlinn.ai`.
-6. Only for "Continue with Google": `https://premium.aibhlinn.ai/` in
-   Supabase's redirect allow list, then `GOOGLE_ENABLED = true` in
-   `premium.js`.
+6. For "Continue with Google", on since 26 Nov 2026:
+   `https://premium.aibhlinn.ai/**` in Supabase's redirect allow list
+   (Authentication, URL Configuration), and `GOOGLE_ENABLED = true` in
+   `premium.js`. If the entry is ever removed, set the flag back to
+   `false` so the button is hidden. The page keeps a Google return only
+   when that tab pressed the button in the last 15 minutes; a token
+   arriving any other way is dropped.
