@@ -407,3 +407,50 @@ code{ font-family:ui-monospace, "Cascadia Mono", Consolas, monospace; font-size:
 
 /* What Premium adds. */
 .includes{ margin:0 0 .8em; padding-left:1.25em; display:grid; gap:.4em; }
+
+/* ───────────────────────── Foundation (/foundation.html) ───────────────────────── */
+
+/* The hero: the product's name exactly as the sales page shows it
+   (.premium-title, here on a paragraph, so it needs the heading's own
+   weight and spacing), then this page's title under it. */
+p.premium-title{ font-weight:700; line-height:1.2; letter-spacing:-.012em; }
+.page-title{
+  color:var(--ti-upper); font-weight:600;
+  font-size:clamp(1.35rem, 1.1rem + 1.2vw, 1.8rem); margin:0 0 .8em;
+}
+/* Pie Timers' own colours, on this chip only: its purple, its pie and
+   its orange. Everything else on the page is the suite's navy and metal. */
+.for-app{
+  display:inline-flex; align-items:center; gap:10px; margin:0;
+  padding:7px 18px 7px 8px; border-radius:999px;
+  background:linear-gradient(90deg, #2E1838, var(--pt-purple-lift));
+  border:1.5px solid #8A4DA5; color:#F6D7B0; font-size:1rem; font-weight:500;
+}
+.for-app svg{ flex:none; }
+.for-app strong{ color:var(--pt-orange); font-weight:700; }
+
+/* The page reads as a document: smaller headings than the sales page. */
+.doc h2{ font-size:clamp(1.4rem, 1.1rem + 1.2vw, 1.8rem); margin-top:1.7em; }
+.doc-meta{ margin-bottom:1.4em; }
+.doc-list{ margin:0 0 1em; padding-left:1.25em; display:grid; gap:.5em; }
+.doc .actions{ margin:1.4em 0 0; }
+.places{ font-weight:700; color:var(--heading); }
+
+/* The launch offer card. The pie is drawn in the suite's own colours:
+   what is left of the offer in the heading colour, on a quiet plate. */
+.launch{
+  text-align:center; background:var(--surface);
+  border:1.5px solid var(--heading); border-radius:var(--radius);
+  padding:clamp(20px, 4vw, 30px);
+}
+.doc .launch-name{ margin:0 0 14px; font-size:1.05rem; letter-spacing:0; }
+.launch-pie{ display:block; width:96px; height:96px; margin:0 auto; overflow:visible; }
+.launch-pie-base{ fill:var(--line); }
+.launch-pie-left{ fill:var(--heading); }
+.launch-pie-rim{ fill:none; stroke:var(--heading); stroke-width:1.5; }
+.launch-hook{
+  margin:14px 0 0; font-size:clamp(1.3rem, 6vw, 2rem); line-height:1.15;
+  font-weight:700; letter-spacing:-.012em; color:var(--heading); text-wrap:balance;
+}
+.launch-terms{ margin:8px auto 0; max-width:44ch; font-size:.98rem; line-height:1.5; }
+.launch-caption{ margin:12px 0 0; font-size:.95rem; font-weight:600; color:var(--muted); }
