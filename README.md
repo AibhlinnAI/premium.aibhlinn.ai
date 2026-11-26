@@ -1,7 +1,8 @@
 # premium.aibhlinn.ai, where AibhlínnAI Premium is bought
 
-One page: confirm your email, then subscribe to AibhlínnAI Premium through
-Paddle. Every AibhlínnAI app sends people here; none sells in-app.
+The sales page: confirm your email, then subscribe to AibhlínnAI Premium
+through Paddle. One more page, `foundation.html`, explains the Foundation
+price lock. Every AibhlínnAI app sends people here; none sells in-app.
 
 **Why a separate subdomain (Mal, 25 Nov 2026).** Paddle reviews each domain
 on its own. It refused `aibhlinn.ai` because that site also describes
@@ -19,6 +20,8 @@ same guard job as `AibhlinnAI/aibhlinn.ai` (secrets, trackers, ABN wrapping).
 | --- | --- |
 | `index.html` | The page. Live and indexed since 25 Nov 2026, after two test purchases Mal watched (one in-trial, one paid today, both cancelled and refunded) |
 | `premium.js` | Confirm email, read the account's entitlement, open checkout |
+| `foundation.html` | Foundation Members: how the price lock works. Moved here from `pietimers.aibhlinn.ai/foundation.html` on 26 Nov 2026 (Mal), which now sends visits here. Same wording, this site's branding. Pie Timers' colours appear on the "For use with Pie Timers" chip only |
+| `foundation.js` | That page's launch pie and its count of places left. One request, to `foundation_status`. The status block is the one in `pie-timers-app/app/pricing.html`; keep them in step |
 | `identity/identity.js`, `identity/email-typos.js` | Copied **unmodified** from `pie-timers-app/identity/`. Copy again if those change; never edit here |
 | `site.css` | Copied from the `aibhlinn.ai` repo, plus the Premium rules at the end. Keep the two in step |
 | `404.html` | Root-absolute links, because it can be served at any depth |
@@ -53,7 +56,8 @@ to Pie Timers confirms their email again here.
 ## Dates on this page
 
 `index.html` and `premium.js` (`OFFER_CLOSES`, 2027-01-01T12:00:00Z) carry the
-launch-offer dates. This site belongs on the "launch dates live in several
+launch-offer dates. So do `foundation.html` and `foundation.js` (`START`, `END`
+and `FOUNDATION_CLOSES`). This site belongs on the "launch dates live in several
 places" list in `pie-timers-app/CLAUDE.md`: if a date moves there, move it
 here too.
 
