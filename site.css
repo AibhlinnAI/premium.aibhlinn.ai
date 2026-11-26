@@ -410,12 +410,14 @@ code{ font-family:ui-monospace, "Cascadia Mono", Consolas, monospace; font-size:
 
 /* ───────────────────────── Foundation (/foundation.html) ───────────────────────── */
 
-/* The hero: which product this is, then the page, then the app it is for. */
-.hero-eyebrow{
-  margin:clamp(8px, 2vw, 20px) 0 0; color:var(--ti-lower);
-  font-size:.86rem; font-weight:600; letter-spacing:.12em; text-transform:uppercase;
+/* The hero: the product's name exactly as the sales page shows it
+   (.premium-title, here on a paragraph, so it needs the heading's own
+   weight and spacing), then this page's title under it. */
+p.premium-title{ font-weight:700; line-height:1.2; letter-spacing:-.012em; }
+.page-title{
+  color:var(--ti-upper); font-weight:600;
+  font-size:clamp(1.35rem, 1.1rem + 1.2vw, 1.8rem); margin:0 0 .8em;
 }
-.hero-eyebrow + .premium-title{ margin-top:.15em; }
 /* Pie Timers' own colours, on this chip only: its purple, its pie and
    its orange. Everything else on the page is the suite's navy and metal. */
 .for-app{
