@@ -390,6 +390,22 @@ code{ font-family:ui-monospace, "Cascadia Mono", Consolas, monospace; font-size:
 .challenge{ margin:0 0 14px; min-height:65px; }
 
 .btn:disabled{ opacity:.55; cursor:progress; }
+/* "Continue with Google", to Google's sign-in branding: white with a grey
+   line in light, near-black in dark, the four-colour mark untouched, pill
+   shape. Google asks for Roboto Medium; it is used when the device has
+   it and is never fetched, because this site loads nothing from Google.
+   Kept 48px tall, like every button here, so it is easy to press. */
+.btn-google{
+  gap:10px; padding:12px 16px 12px 14px;
+  background:#FFFFFF; color:#1F1F1F; border:1px solid #747775;
+  font-family:Roboto, var(--font); font-weight:500;
+}
+.btn-google svg{ flex:none; }
+.btn-google:hover{ background:#F2F2F2; text-decoration:none; }
+@media (prefers-color-scheme: dark){
+  .btn-google{ background:#131314; color:#E3E3E3; border-color:#8E918F; }
+  .btn-google:hover{ background:#232325; }
+}
 .status{ min-height:1.6em; font-weight:600; margin:8px 0 20px; }
 .status.is-error{ color:#B3261E; }
 @media (prefers-color-scheme: dark){ .status.is-error{ color:#FFB4AB; } }
